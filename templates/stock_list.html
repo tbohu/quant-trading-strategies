@@ -1,0 +1,95 @@
+{% extends "base.html" %}
+{% block title %}自选股列表 — 旺财量化{% endblock %}
+
+{% macro score_cls(s) %}{% if s and s >= 85 %}text-success{% elif s and s >= 75 %}text-warning{% elif s %}text-danger{% else %}text-muted{% endif %}{% endmacro %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-3">
+  <h5 class="mb-0"><i class="bi bi-list-ul me-2"></i>自选股（{{ rows|length }}只）</h5>
+  <a href="/stocks/add" class="btn btn-warning btn-sm">+ 添加</a>
+</div>
+
+<div class="mb-3">
+  <input type="text" id="searchBox" class="form-control bg-dark text-white border-secondary"
+    placeholder="搜索股票名称或代码…" oninput="filterTable()">
+</div>
+
+<div class="table-responsive">
+  <table class="table table-dark table-hover align-middle" id="stockTable">
+    <thead>
+      <tr>
+        <th>股票</th>
+        <th>行业</th>
+        <th>价格</th>
+        <th>涨幅</th>
+        <th>换手</th>
+        <th>量比</th>
+        <th>V6.0</th>
+        <th>V4.2</th>
+        <th>主力</th>
+        <th>主力状态</th>
+        <th>信号</th>
+        <th>操作</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for row in rows %}
+      {% set s = row.stock %}
+      {% set a = row.analysis %}
+      <tr onclick="location.href='/stocks/{{ s.code }}'" style="cursor:pointer" class="stock-row">
+        <td>
+          <div class="fw-bold">{{ s.name }}</div>
+          <div class="text-muted small">{{ s.code }} · {{ s.market or '' }}</div>
+          {% if s.is_st %}<span class="badge bg-danger">ST</span>{% endif %}
+        </td>
+        <td class="text-muted small">{{ s.industry or '-' }}</td>
+        {% if a %}
+        <td class="fw-bold">{{ '%.2f'|format(a.current_price) if a.current_price else '-' }}</td>
+        <td class="{% if (a.change_pct or 0) > 0 %}text-up{% elif (a.change_pct or 0) < 0 %}text-down{% endif %}">
+          {{ '%+.2f'|format(a.change_pct or 0) }}%
+        </td>
+        <td class="small">{{ '%.1f'|format(a.turnover_rate or 0) }}%</td>
+        <td class="small">{{ '%.2f'|format(a.volume_ratio or 0) }}</td>
+        <td><span class="fw-bold {{ score_cls(a.v60_score) }}">{{ a.v60_score or '-' }}</span></td>
+        <td><span class="fw-bold {{ score_cls(a.v42_score) }}">{{ a.v42_score or '-' }}</span></td>
+        <td><span class="fw-bold {{ score_cls(a.main_force_score) }}">{{ a.main_force_score or '-' }}</span></td>
+        <td><span class="badge bg-secondary">{{ a.main_force_state or '-' }}</span></td>
+        <td>
+          {% if a.buy_signal %}<span class="signal-buy">买入</span>
+          {% elif a.sell_signal %}<span class="signal-sell">卖出</span>
+          {% elif a.in_watchlist %}<span class="signal-watch">观察</span>
+          {% elif a.eliminated %}<span class="text-muted small">淘汰</span>
+          {% else %}-{% endif %}
+        </td>
+        {% else %}
+        <td colspan="9" class="text-muted small">未分析 — <a href="/stocks/{{ s.code }}/analyze">立即分析</a></td>
+        {% endif %}
+        <td>
+          <div class="d-flex gap-1">
+            <a href="/stocks/{{ s.code }}" class="btn btn-sm btn-outline-secondary" onclick="event.stopPropagation()">详情</a>
+            <a href="/stocks/{{ s.code }}/analyze" class="btn btn-sm btn-outline-warning" onclick="event.stopPropagation()">分析</a>
+          </div>
+        </td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+
+{% if not rows %}
+<div class="text-center py-5">
+  <p class="text-muted">暂无股票，<a href="/stocks/add">立即添加</a></p>
+</div>
+{% endif %}
+{% endblock %}
+
+{% block scripts %}
+<script>
+function filterTable() {
+  const q = document.getElementById('searchBox').value.toLowerCase();
+  document.querySelectorAll('#stockTable .stock-row').forEach(tr => {
+    tr.style.display = tr.textContent.toLowerCase().includes(q) ? '' : 'none';
+  });
+}
+</script>
+{% endblock %}
