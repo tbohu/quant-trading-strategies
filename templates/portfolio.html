@@ -1,0 +1,225 @@
+{% extends "base.html" %}
+{% block title %}持仓风控 — 旺财量化{% endblock %}
+{% block content %}
+
+<div class="d-flex justify-content-between align-items-center mb-3">
+  <h5 class="mb-0"><i class="bi bi-briefcase me-2"></i>持仓风控</h5>
+  <button class="btn btn-warning btn-sm" data-bs-toggle="modal" data-bs-target="#addHoldingModal">
+    + 添加持仓
+  </button>
+</div>
+
+<!-- 账户概览 -->
+<div class="row g-3 mb-4">
+  <div class="col-6 col-md-3">
+    <div class="stat-card">
+      <div class="stat-value text-warning">{{ '%.0f'|format(account.sim_account_total_asset / 10000) }}w</div>
+      <div class="stat-label">账户总资产</div>
+    </div>
+  </div>
+  <div class="col-6 col-md-3">
+    <div class="stat-card">
+      <div class="stat-value text-info">{{ '%.0f'|format(account.sim_cash / 10000) }}w</div>
+      <div class="stat-label">可用现金</div>
+    </div>
+  </div>
+  <div class="col-6 col-md-3">
+    <div class="stat-card">
+      <div class="stat-value {% if (account.sim_total_profit or 0) >= 0 %}text-success{% else %}text-danger{% endif %}">
+        {{ '%.0f'|format((account.sim_total_profit or 0) / 10000) }}w
+      </div>
+      <div class="stat-label">累计盈亏</div>
+    </div>
+  </div>
+  <div class="col-6 col-md-3">
+    <div class="stat-card">
+      <div class="stat-value {% if account.win_rate and account.win_rate >= 50 %}text-success{% else %}text-warning{% endif %}">
+        {{ '%.1f'|format(account.win_rate or 0) }}%
+      </div>
+      <div class="stat-label">胜率</div>
+    </div>
+  </div>
+</div>
+
+{% if account.trading_paused %}
+<div class="alert alert-danger mb-4">
+  <i class="bi bi-pause-circle me-2"></i>
+  <strong>交易已暂停</strong> — 连续亏损 {{ account.continuous_loss_count }} 笔，请复盘后点击"恢复交易"。
+  <button class="btn btn-sm btn-outline-light ms-2" onclick="resumeTrading()">恢复交易</button>
+</div>
+{% endif %}
+
+<!-- 持仓列表 -->
+{% if enriched %}
+<div class="row g-3">
+  {% for e in enriched %}
+  {% set h = e.holding %}
+  {% set r = e.risk %}
+  {% set cp = e.current_price %}
+  <div class="col-12 col-lg-6">
+    <div class="stat-card p-3 risk-{{ r.color }}">
+      <div class="d-flex justify-content-between align-items-start mb-2">
+        <div>
+          <div class="fw-bold">{{ h.stock_name }} <span class="text-muted small">{{ h.stock_code }}</span></div>
+          <div class="text-muted small">{{ h.strategy_type or '未知策略' }} · {{ h.buy_date.strftime('%Y-%m-%d') if h.buy_date else '' }}</div>
+        </div>
+        <div class="text-end">
+          <div class="fw-bold {% if r.floating_pnl_pct > 0 %}text-success{% elif r.floating_pnl_pct < 0 %}text-danger{% endif %} fs-5">
+            {{ '%+.2f'|format(r.floating_pnl_pct) }}%
+          </div>
+          <div class="text-muted small">¥{{ '%.2f'|format(cp) }}</div>
+        </div>
+      </div>
+
+      <div class="row g-2 text-center mb-2">
+        <div class="col-3">
+          <div class="text-muted" style="font-size:.7rem">成本</div>
+          <div class="small fw-bold">{{ '%.2f'|format(h.holding_cost) }}</div>
+        </div>
+        <div class="col-3">
+          <div class="text-muted" style="font-size:.7rem">数量</div>
+          <div class="small fw-bold">{{ h.holding_quantity }}</div>
+        </div>
+        <div class="col-3">
+          <div class="text-muted" style="font-size:.7rem">浮盈亏</div>
+          <div class="small fw-bold {% if r.floating_pnl > 0 %}text-success{% else %}text-danger{% endif %}">
+            {{ '%.0f'|format(r.floating_pnl) }}
+          </div>
+        </div>
+        <div class="col-3">
+          <div class="text-muted" style="font-size:.7rem">操作</div>
+          <div class="small fw-bold">
+            <span class="badge {% if r.color == 'red' %}bg-danger{% elif r.color == 'orange' %}bg-warning text-dark{% elif r.color == 'green' %}bg-success{% else %}bg-info text-dark{% endif %}">
+              {{ r.action }}
+            </span>
+          </div>
+        </div>
+      </div>
+
+      <!-- 止损止盈线 -->
+      <div class="row g-1 text-center mb-2" style="font-size:.72rem">
+        <div class="col-3 text-danger">
+          <div class="text-muted">强止损</div>
+          <div>{{ '%.2f'|format(r.hard_stop_loss) }}</div>
+        </div>
+        <div class="col-3 text-warning">
+          <div class="text-muted">普通止损</div>
+          <div>{{ '%.2f'|format(r.normal_stop_loss) }}</div>
+        </div>
+        <div class="col-3 text-success">
+          <div class="text-muted">止盈提醒</div>
+          <div>{{ '%.2f'|format(r.take_profit_alert) }}</div>
+        </div>
+        <div class="col-3 text-success">
+          <div class="text-muted">强止盈</div>
+          <div>{{ '%.2f'|format(r.take_profit_strong) }}</div>
+        </div>
+      </div>
+
+      <div class="small text-muted mb-2">{{ r.advice }}</div>
+
+      <div class="d-flex gap-2">
+        <a href="/stocks/{{ h.stock_code }}" class="btn btn-sm btn-outline-secondary flex-fill">分析</a>
+        <button class="btn btn-sm btn-outline-danger flex-fill" onclick="closeHolding({{ h.id }})">模拟平仓</button>
+      </div>
+    </div>
+  </div>
+  {% endfor %}
+</div>
+{% else %}
+<div class="text-center py-5">
+  <i class="bi bi-briefcase display-4 text-muted"></i>
+  <p class="text-muted mt-3">暂无持仓，通过股票详情页"快速建仓"或点击下方按钮添加。</p>
+</div>
+{% endif %}
+
+<!-- 添加持仓 Modal -->
+<div class="modal fade" id="addHoldingModal" tabindex="-1">
+  <div class="modal-dialog">
+    <div class="modal-content bg-dark border-secondary">
+      <div class="modal-header border-secondary">
+        <h5 class="modal-title">添加持仓记录</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body">
+        <div class="mb-2">
+          <label class="form-label">股票代码</label>
+          <input type="text" id="h_code" class="form-control bg-dark text-white border-secondary" placeholder="如 300502">
+        </div>
+        <div class="mb-2">
+          <label class="form-label">股票名称</label>
+          <input type="text" id="h_name" class="form-control bg-dark text-white border-secondary">
+        </div>
+        <div class="mb-2">
+          <label class="form-label">持仓成本（元/股）</label>
+          <input type="number" step="any" id="h_cost" class="form-control bg-dark text-white border-secondary">
+        </div>
+        <div class="mb-2">
+          <label class="form-label">持仓数量（股）</label>
+          <input type="number" id="h_qty" class="form-control bg-dark text-white border-secondary">
+        </div>
+        <div class="mb-2">
+          <label class="form-label">策略类型</label>
+          <select id="h_strategy" class="form-select bg-dark text-white border-secondary">
+            <option>超短线</option>
+            <option>主线突破</option>
+            <option>强势回踩</option>
+            <option>资金异动</option>
+            <option>中线</option>
+          </select>
+        </div>
+        <div id="h_msg"></div>
+      </div>
+      <div class="modal-footer border-secondary">
+        <button class="btn btn-warning" onclick="addHolding()">确认添加</button>
+        <button class="btn btn-outline-secondary" data-bs-dismiss="modal">取消</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+{% endblock %}
+
+{% block scripts %}
+<script>
+async function addHolding() {
+  const data = {
+    stock_code: document.getElementById('h_code').value.trim(),
+    stock_name: document.getElementById('h_name').value.trim(),
+    holding_cost: parseFloat(document.getElementById('h_cost').value),
+    holding_quantity: parseInt(document.getElementById('h_qty').value),
+    strategy_type: document.getElementById('h_strategy').value,
+  };
+  const res = await fetch('/portfolio/add', {
+    method: 'POST',
+    headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify(data),
+  });
+  const json = await res.json();
+  const msg = document.getElementById('h_msg');
+  if (res.ok) {
+    msg.innerHTML = '<div class="alert alert-success">添加成功</div>';
+    setTimeout(() => location.reload(), 1200);
+  } else {
+    msg.innerHTML = `<div class="alert alert-danger">${json.detail}</div>`;
+  }
+}
+
+async function closeHolding(id) {
+  if (!confirm('确认模拟平仓？将以最新分析价格计算盈亏。')) return;
+  const res = await fetch(`/portfolio/${id}/close`, { method: 'POST' });
+  const json = await res.json();
+  if (res.ok) {
+    alert(`平仓成功 盈亏：${json.pnl.toFixed(0)}元`);
+    location.reload();
+  } else {
+    alert(json.detail);
+  }
+}
+
+async function resumeTrading() {
+  // 直接刷新，让管理员手动重置
+  alert('请在交易记录页确认复盘后刷新页面，或联系管理员手动重置。');
+}
+</script>
+{% endblock %}
