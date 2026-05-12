@@ -1,0 +1,148 @@
+{% extends "base.html" %}
+{% block title %}总览 — 旺财量化{% endblock %}
+
+{% macro score_cls(s) %}{% if s and s >= 85 %}text-success{% elif s and s >= 75 %}text-warning{% elif s %}text-danger{% else %}text-muted{% endif %}{% endmacro %}
+
+{% macro score_badge(s) %}
+<span class="fw-bold {{ score_cls(s) }}">{{ s if s else '-' }}</span>
+{% endmacro %}
+
+{% block content %}
+
+<div class="row g-3 mb-4">
+  <div class="col-6 col-md-3">
+    <div class="stat-card">
+      <div class="stat-value text-warning">{{ total_stocks }}</div>
+      <div class="stat-label"><i class="bi bi-collection me-1"></i>监控股票</div>
+    </div>
+  </div>
+  <div class="col-6 col-md-3">
+    <div class="stat-card">
+      <div class="stat-value text-success">{{ buy_signals|length }}</div>
+      <div class="stat-label"><i class="bi bi-arrow-up-circle me-1"></i>买入信号</div>
+    </div>
+  </div>
+  <div class="col-6 col-md-3">
+    <div class="stat-card">
+      <div class="stat-value text-warning">{{ watchlist|length }}</div>
+      <div class="stat-label"><i class="bi bi-eye me-1"></i>观察池</div>
+    </div>
+  </div>
+  <div class="col-6 col-md-3">
+    <div class="stat-card">
+      <div class="stat-value text-danger">{{ sell_signals|length }}</div>
+      <div class="stat-label"><i class="bi bi-exclamation-triangle me-1"></i>卖出提示</div>
+    </div>
+  </div>
+</div>
+
+{% if buy_signals %}
+<div class="mb-4">
+  <h5 class="mb-3"><span class="signal-buy me-2">BUY</span>买入信号 <small class="text-muted fs-6">{{ buy_signals|length }}只</small></h5>
+  <div class="table-responsive">
+    <table class="table table-dark table-hover align-middle mb-0">
+      <thead>
+        <tr>
+          <th>股票</th><th>策略</th><th>涨幅</th>
+          <th>V6.0</th><th>V4.2</th><th>主力</th>
+          <th>主力状态</th><th>操作建议</th><th></th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for s, a in buy_signals %}
+        <tr onclick="location.href='/stocks/{{ s.code }}'" style="cursor:pointer">
+          <td>
+            <div class="fw-bold">{{ s.name }}</div>
+            <div class="text-muted small">{{ s.code }} · {{ s.market }}</div>
+          </td>
+          <td><span class="badge bg-success">{{ a.matched_strategy }}</span></td>
+          <td class="{% if (a.change_pct or 0) > 0 %}text-up{% elif (a.change_pct or 0) < 0 %}text-down{% endif %}">
+            {{ '%+.2f'|format(a.change_pct or 0) }}%
+          </td>
+          <td>{{ score_badge(a.v60_score) }}</td>
+          <td>{{ score_badge(a.v42_score) }}</td>
+          <td>{{ score_badge(a.main_force_score) }}</td>
+          <td><span class="badge bg-secondary">{{ a.main_force_state or '-' }}</span></td>
+          <td class="small text-muted" style="max-width:220px">{{ (a.operation_advice or '')[:80] }}</td>
+          <td><a href="/stocks/{{ s.code }}" class="btn btn-sm btn-outline-success">详情</a></td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% endif %}
+
+{% if watchlist %}
+<div class="mb-4">
+  <h5 class="mb-3"><span class="signal-watch me-2">WATCH</span>观察池</h5>
+  <div class="row g-2">
+    {% for s, a in watchlist %}
+    <div class="col-12 col-md-6 col-lg-4">
+      <div class="stat-card p-3" onclick="location.href='/stocks/{{ s.code }}'" style="cursor:pointer">
+        <div class="d-flex justify-content-between align-items-start">
+          <div>
+            <div class="fw-bold">{{ s.name }} <span class="text-muted small">{{ s.code }}</span></div>
+            <div class="text-muted small">{{ s.industry or '' }}</div>
+          </div>
+          <div class="text-end">
+            <div class="{% if (a.change_pct or 0) > 0 %}text-up{% elif (a.change_pct or 0) < 0 %}text-down{% endif %} fw-bold">
+              {{ '%+.2f'|format(a.change_pct or 0) }}%
+            </div>
+            <div class="text-muted small">¥{{ a.current_price or '-' }}</div>
+          </div>
+        </div>
+        <div class="mt-2 d-flex gap-2 text-center">
+          <div class="flex-fill">
+            <div class="text-muted" style="font-size:.7rem">V6.0</div>
+            <div class="fw-bold {{ score_cls(a.v60_score) }}">{{ a.v60_score or '-' }}</div>
+          </div>
+          <div class="flex-fill">
+            <div class="text-muted" style="font-size:.7rem">V4.2</div>
+            <div class="fw-bold {{ score_cls(a.v42_score) }}">{{ a.v42_score or '-' }}</div>
+          </div>
+          <div class="flex-fill">
+            <div class="text-muted" style="font-size:.7rem">主力</div>
+            <div class="fw-bold {{ score_cls(a.main_force_score) }}">{{ a.main_force_score or '-' }}</div>
+          </div>
+        </div>
+      </div>
+    </div>
+    {% endfor %}
+  </div>
+</div>
+{% endif %}
+
+{% if sell_signals %}
+<div class="mb-4">
+  <h5 class="mb-3"><span class="signal-sell me-2">SELL</span>卖出提示</h5>
+  <div class="table-responsive">
+    <table class="table table-dark table-hover align-middle mb-0">
+      <thead><tr><th>股票</th><th>涨幅</th><th>V6.0</th><th>风险提示</th><th></th></tr></thead>
+      <tbody>
+        {% for s, a in sell_signals %}
+        <tr onclick="location.href='/stocks/{{ s.code }}'" style="cursor:pointer">
+          <td><div class="fw-bold">{{ s.name }}</div><div class="text-muted small">{{ s.code }}</div></td>
+          <td class="{% if (a.change_pct or 0) > 0 %}text-up{% else %}text-down{% endif %}">
+            {{ '%+.2f'|format(a.change_pct or 0) }}%
+          </td>
+          <td>{{ a.v60_score or '-' }}</td>
+          <td class="text-danger small">{{ a.risk_alert or '' }}</td>
+          <td><a href="/stocks/{{ s.code }}" class="btn btn-sm btn-outline-danger">详情</a></td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% endif %}
+
+{% if not analyses %}
+<div class="text-center py-5">
+  <i class="bi bi-graph-up-arrow display-4 text-muted"></i>
+  <p class="text-muted mt-3 mb-2">还没有分析数据</p>
+  <a href="/stocks/add" class="btn btn-warning">+ 添加股票</a>
+</div>
+{% endif %}
+
+{% endblock %}
