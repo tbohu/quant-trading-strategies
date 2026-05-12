@@ -1,0 +1,389 @@
+{% extends "base.html" %}
+{% block title %}{{ stock.name }} — 旺财量化{% endblock %}
+
+{% macro score_cls(s) %}{% if s and s >= 85 %}text-success{% elif s and s >= 75 %}text-warning{% elif s %}text-danger{% else %}text-muted{% endif %}{% endmacro %}
+
+{% block content %}
+<!-- Header -->
+<div class="d-flex align-items-start justify-content-between mb-4 flex-wrap gap-2">
+  <div>
+    <h4 class="mb-1">
+      {{ stock.name }}
+      <span class="text-muted fs-6 ms-2">{{ stock.code }} · {{ stock.market }}</span>
+      {% if stock.is_st %}<span class="badge bg-danger ms-1">ST</span>{% endif %}
+    </h4>
+    <div class="text-muted small">{{ stock.industry }}
+      {% for c in concepts %}<span class="badge bg-dark border border-secondary ms-1">{{ c.strip() }}</span>{% endfor %}
+    </div>
+  </div>
+  <div class="d-flex gap-2">
+    <a href="/stocks/{{ stock.code }}/analyze" class="btn btn-warning">
+      <i class="bi bi-lightning me-1"></i>重新分析
+    </a>
+    <a href="/stocks" class="btn btn-outline-secondary">← 返回</a>
+  </div>
+</div>
+
+{% if latest %}
+<!-- Score Summary -->
+<div class="row g-3 mb-4">
+  <div class="col-6 col-md-3">
+    <div class="stat-card text-center">
+      <div class="text-muted small mb-1">V6.0 超短线</div>
+      <div class="stat-value {{ score_cls(latest.v60_score) }}">{{ latest.v60_score or '-' }}</div>
+      <div class="small text-muted">{{ latest.v60_conclusion or '' }}</div>
+    </div>
+  </div>
+  <div class="col-6 col-md-3">
+    <div class="stat-card text-center">
+      <div class="text-muted small mb-1">V4.2 中线</div>
+      <div class="stat-value {{ score_cls(latest.v42_score) }}">{{ latest.v42_score or '-' }}</div>
+      <div class="small text-muted">{{ latest.v42_conclusion or '' }}</div>
+    </div>
+  </div>
+  <div class="col-6 col-md-3">
+    <div class="stat-card text-center">
+      <div class="text-muted small mb-1">主力控盘</div>
+      <div class="stat-value {{ score_cls(latest.main_force_score) }}">{{ latest.main_force_score or '-' }}</div>
+      <div class="small text-muted">{{ latest.main_force_conclusion or '' }}</div>
+    </div>
+  </div>
+  <div class="col-6 col-md-3">
+    <div class="stat-card text-center">
+      <div class="text-muted small mb-1">主力状态</div>
+      <div class="stat-value fs-5 fw-bold text-info">{{ latest.main_force_state or '-' }}</div>
+      <div class="small">
+        {% if latest.buy_signal %}<span class="signal-buy">买入</span>
+        {% elif latest.sell_signal %}<span class="signal-sell">卖出</span>
+        {% elif latest.in_watchlist %}<span class="signal-watch">观察</span>
+        {% else %}<span class="text-muted">—</span>{% endif %}
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- 操作建议 + 风险提示 -->
+<div class="row g-3 mb-4">
+  <div class="col-12 col-md-8">
+    <div class="stat-card p-3">
+      <div class="text-muted small mb-1"><i class="bi bi-lightbulb me-1"></i>操作建议</div>
+      <div>{{ latest.operation_advice or '—' }}</div>
+    </div>
+  </div>
+  <div class="col-12 col-md-4">
+    <div class="stat-card p-3 {% if latest.risk_alert and latest.risk_alert != '无明显风险' %}border border-danger{% endif %}">
+      <div class="text-muted small mb-1"><i class="bi bi-shield-exclamation me-1"></i>风险提示</div>
+      <div class="{% if latest.risk_alert and latest.risk_alert != '无明显风险' %}text-danger{% else %}text-success{% endif %} small">
+        {{ latest.risk_alert or '无明显风险' }}
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- 详细评分拆解 -->
+<div class="row g-3 mb-4">
+  {% if v60_detail %}
+  <div class="col-12 col-md-4">
+    <div class="stat-card p-3 h-100">
+      <h6 class="text-warning mb-3">V6.0 评分拆解</h6>
+      <table class="table table-sm table-dark mb-0 breakdown-table">
+        {% for k, v in v60_detail.items() %}
+        <tr>
+          <td>{{ k }}</td>
+          <td class="text-end">
+            <span class="{{ score_cls(v.score / v.max * 100) }}">{{ v.score }}</span>
+            <span class="text-muted">/{{ v.max }}</span>
+          </td>
+          <td style="width:80px">
+            <div class="score-bar-wrap">
+              <div class="score-bar bg-success" style="width:{{ (v.score/v.max*100)|round }}%"></div>
+            </div>
+          </td>
+        </tr>
+        {% endfor %}
+      </table>
+    </div>
+  </div>
+  {% endif %}
+
+  {% if v42_detail %}
+  <div class="col-12 col-md-4">
+    <div class="stat-card p-3 h-100">
+      <h6 class="text-warning mb-3">V4.2 评分拆解</h6>
+      <table class="table table-sm table-dark mb-0 breakdown-table">
+        {% for k, v in v42_detail.items() %}
+        <tr>
+          <td>{{ k }}</td>
+          <td class="text-end">
+            <span class="{{ score_cls(v.score / v.max * 100) }}">{{ v.score }}</span>
+            <span class="text-muted">/{{ v.max }}</span>
+          </td>
+          <td style="width:80px">
+            <div class="score-bar-wrap">
+              <div class="score-bar bg-primary" style="width:{{ (v.score/v.max*100)|round }}%"></div>
+            </div>
+          </td>
+        </tr>
+        {% endfor %}
+      </table>
+    </div>
+  </div>
+  {% endif %}
+
+  {% if mf_detail %}
+  <div class="col-12 col-md-4">
+    <div class="stat-card p-3 h-100">
+      <h6 class="text-warning mb-3">主力控盘拆解</h6>
+      <table class="table table-sm table-dark mb-0 breakdown-table">
+        {% for k, v in mf_detail.items() %}
+        <tr>
+          <td>{{ k }}</td>
+          <td class="text-end">
+            <span class="{{ score_cls(v.score / v.max * 100) }}">{{ v.score }}</span>
+            <span class="text-muted">/{{ v.max }}</span>
+          </td>
+          <td style="width:80px">
+            <div class="score-bar-wrap">
+              <div class="score-bar bg-warning" style="width:{{ (v.score/v.max*100)|round }}%"></div>
+            </div>
+          </td>
+        </tr>
+        {% endfor %}
+      </table>
+    </div>
+  </div>
+  {% endif %}
+</div>
+
+<!-- 行情数据 -->
+<div class="row g-3 mb-4">
+  <div class="col-12 col-md-6">
+    <div class="stat-card p-3">
+      <h6 class="text-warning mb-3"><i class="bi bi-graph-up me-1"></i>今日行情</h6>
+      <div class="row g-2 text-center">
+        {% set items = [
+          ('当前价', '%.2f'|format(latest.current_price) if latest.current_price else '-'),
+          ('涨跌幅', ('%+.2f%%'|format(latest.change_pct)) if latest.change_pct is not none else '-'),
+          ('换手率', ('%.1f%%'|format(latest.turnover_rate)) if latest.turnover_rate is not none else '-'),
+          ('量比', ('%.2f'|format(latest.volume_ratio)) if latest.volume_ratio is not none else '-'),
+          ('5/20量比', ('%.2f'|format(latest.volume_ratio_5_20)) if latest.volume_ratio_5_20 is not none else '-'),
+        ] %}
+        {% for label, val in items %}
+        <div class="col-4">
+          <div class="text-muted" style="font-size:.75rem">{{ label }}</div>
+          <div class="fw-bold {% if '+'  in val|string %}text-up{% elif '-' in val|string and val != '-' %}text-down{% endif %}">{{ val }}</div>
+        </div>
+        {% endfor %}
+      </div>
+    </div>
+  </div>
+  <div class="col-12 col-md-6">
+    <div class="stat-card p-3">
+      <h6 class="text-warning mb-3"><i class="bi bi-activity me-1"></i>均线位置</h6>
+      <div class="row g-2 text-center">
+        {% for ma, field in [('MA5', latest.ma5), ('MA10', latest.ma10), ('MA20', latest.ma20), ('MA60', latest.ma60)] %}
+        <div class="col-3">
+          <div class="text-muted" style="font-size:.75rem">{{ ma }}</div>
+          <div class="fw-bold">{{ '%.2f'|format(field) if field else '-' }}</div>
+          {% if field and latest.current_price %}
+          <div class="small {% if latest.current_price > field %}text-success{% else %}text-danger{% endif %}">
+            {% if latest.current_price > field %}↑{% else %}↓{% endif %}
+          </div>
+          {% endif %}
+        </div>
+        {% endfor %}
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- 主力资金 -->
+<div class="row g-3 mb-4">
+  <div class="col-12 col-md-6">
+    <div class="stat-card p-3">
+      <h6 class="text-warning mb-3"><i class="bi bi-currency-dollar me-1"></i>主力资金</h6>
+      <div class="row g-2 text-center">
+        {% set mf_items = [
+          ('主力净流入', latest.main_net_inflow),
+          ('超大单', latest.super_large_net_inflow),
+          ('大单', latest.large_net_inflow),
+          ('小单', latest.small_net_inflow),
+          ('5日合计', latest.main_net_inflow_5d),
+          ('10日合计', latest.main_net_inflow_10d),
+        ] %}
+        {% for label, val in mf_items %}
+        <div class="col-4">
+          <div class="text-muted" style="font-size:.75rem">{{ label }}</div>
+          <div class="fw-bold {% if val and val > 0 %}text-success{% elif val and val < 0 %}text-danger{% endif %}">
+            {{ ('%.0f'|format(val/10000) + 'w') if val else '-' }}
+          </div>
+        </div>
+        {% endfor %}
+      </div>
+    </div>
+  </div>
+  <div class="col-12 col-md-6">
+    <div class="stat-card p-3">
+      <h6 class="text-warning mb-3"><i class="bi bi-grid me-1"></i>板块热度</h6>
+      <div class="row g-2 text-center">
+        <div class="col-4">
+          <div class="text-muted" style="font-size:.75rem">行业排名</div>
+          <div class="fw-bold {% if latest.industry_rank and latest.industry_rank <= 10 %}text-success{% endif %}">
+            #{{ latest.industry_rank or '-' }}
+          </div>
+        </div>
+        <div class="col-4">
+          <div class="text-muted" style="font-size:.75rem">概念排名</div>
+          <div class="fw-bold {% if latest.concept_rank and latest.concept_rank <= 10 %}text-success{% endif %}">
+            #{{ latest.concept_rank or '-' }}
+          </div>
+        </div>
+        <div class="col-4">
+          <div class="text-muted" style="font-size:.75rem">行业涨幅</div>
+          <div class="fw-bold {% if latest.industry_change_pct and latest.industry_change_pct > 0 %}text-up{% endif %}">
+            {{ ('%+.2f%%'|format(latest.industry_change_pct)) if latest.industry_change_pct is not none else '-' }}
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- 基本面 + 估值 -->
+<div class="row g-3 mb-4">
+  <div class="col-12 col-md-6">
+    <div class="stat-card p-3">
+      <h6 class="text-warning mb-3"><i class="bi bi-file-earmark-bar-graph me-1"></i>基本面（{{ latest.report_date or '最新' }}）</h6>
+      <div class="row g-2">
+        {% set fa = [
+          ('营收同比', latest.revenue_yoy_pct, '%'),
+          ('净利润同比', latest.net_profit_yoy_pct, '%'),
+          ('扣非同比', latest.deducted_net_profit_yoy_pct, '%'),
+          ('ROE', latest.roe_pct, '%'),
+          ('毛利率', latest.gross_margin_pct, '%'),
+          ('净利率', latest.net_margin_pct, '%'),
+          ('负债率', latest.debt_ratio_pct, '%'),
+        ] %}
+        {% for label, val, unit in fa %}
+        <div class="col-6">
+          <div class="d-flex justify-content-between">
+            <span class="text-muted small">{{ label }}</span>
+            <span class="fw-bold small {% if val and val > 0 %}text-success{% elif val and val < 0 %}text-danger{% endif %}">
+              {{ ('%.1f'|format(val) + unit) if val is not none else '-' }}
+            </span>
+          </div>
+        </div>
+        {% endfor %}
+      </div>
+    </div>
+  </div>
+  <div class="col-12 col-md-6">
+    <div class="stat-card p-3">
+      <h6 class="text-warning mb-3"><i class="bi bi-calculator me-1"></i>估值</h6>
+      <div class="row g-2">
+        {% set vals = [
+          ('PE动态', latest.pe_dynamic, ''),('PE TTM', latest.pe_ttm, ''),
+          ('PB', latest.pb, ''),('PEG', latest.peg, ''),('PS', latest.ps, ''),
+        ] %}
+        {% for label, val, unit in vals %}
+        <div class="col-4">
+          <div class="text-muted" style="font-size:.75rem">{{ label }}</div>
+          <div class="fw-bold {% if val and label == 'PE动态' and val > 60 %}text-danger{% elif val %}text-info{% endif %}">
+            {{ ('%.1f'|format(val)) if val is not none else '-' }}
+          </div>
+        </div>
+        {% endfor %}
+      </div>
+    </div>
+  </div>
+</div>
+
+{% else %}
+<div class="text-center py-5">
+  <p class="text-muted">该股票尚未进行分析</p>
+  <a href="/stocks/{{ stock.code }}/analyze" class="btn btn-warning">立即录入数据分析</a>
+</div>
+{% endif %}
+
+<!-- 历史分析记录 -->
+{% if analyses|length > 1 %}
+<div class="stat-card p-3 mb-4">
+  <h6 class="text-warning mb-3"><i class="bi bi-clock-history me-1"></i>历史分析记录</h6>
+  <div class="table-responsive table-scroll">
+    <table class="table table-dark table-sm table-hover mb-0">
+      <thead><tr><th>日期</th><th>V6.0</th><th>V4.2</th><th>主力</th><th>信号</th><th>主力状态</th></tr></thead>
+      <tbody>
+        {% for a in analyses %}
+        <tr>
+          <td class="text-muted small">{{ a.analysis_date.strftime('%m-%d %H:%M') if a.analysis_date else '-' }}</td>
+          <td class="{{ score_cls(a.v60_score) }}">{{ a.v60_score or '-' }}</td>
+          <td class="{{ score_cls(a.v42_score) }}">{{ a.v42_score or '-' }}</td>
+          <td class="{{ score_cls(a.main_force_score) }}">{{ a.main_force_score or '-' }}</td>
+          <td>
+            {% if a.buy_signal %}<span class="signal-buy small">买入</span>
+            {% elif a.sell_signal %}<span class="signal-sell small">卖出</span>
+            {% elif a.in_watchlist %}<span class="signal-watch small">观察</span>
+            {% else %}-{% endif %}
+          </td>
+          <td class="small text-muted">{{ a.main_force_state or '-' }}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% endif %}
+
+<!-- 快速建仓 -->
+{% if latest and latest.buy_signal %}
+<div class="stat-card p-3 mb-4 border border-success">
+  <h6 class="text-success mb-3"><i class="bi bi-plus-circle me-1"></i>快速模拟建仓</h6>
+  <div class="row g-2 align-items-end">
+    <div class="col-auto">
+      <label class="form-label">买入价格</label>
+      <input type="number" id="buyPrice" class="form-control form-control-sm bg-dark text-white border-secondary"
+        value="{{ '%.2f'|format(latest.current_price) if latest.current_price else '' }}" style="width:100px">
+    </div>
+    <div class="col-auto">
+      <label class="form-label">数量（手）</label>
+      <input type="number" id="buyQty" class="form-control form-control-sm bg-dark text-white border-secondary"
+        value="100" style="width:100px">
+    </div>
+    <div class="col-auto">
+      <button class="btn btn-success btn-sm" onclick="quickBuy()">模拟买入</button>
+    </div>
+    <div class="col-12" id="buyMsg"></div>
+  </div>
+</div>
+{% endif %}
+
+{% endblock %}
+
+{% block scripts %}
+<script>
+async function quickBuy() {
+  const price = parseFloat(document.getElementById('buyPrice').value);
+  const qty = parseInt(document.getElementById('buyQty').value) * 100; // 1手=100股
+  const res = await fetch('/trading/buy', {
+    method: 'POST',
+    headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify({
+      stock_code: '{{ stock.code }}',
+      stock_name: '{{ stock.name }}',
+      strategy_type: '{{ latest.matched_strategy if latest else "" }}',
+      buy_price: price,
+      buy_quantity: qty,
+      buy_score: {{ latest.v60_score or 0 }},
+      buy_reason: '系统信号：{{ latest.matched_strategy if latest else "" }}',
+    }),
+  });
+  const json = await res.json();
+  const msg = document.getElementById('buyMsg');
+  if (res.ok) {
+    msg.innerHTML = '<div class="alert alert-success mt-2">买入成功！交易编号：'+json.trade_id+'</div>';
+  } else {
+    msg.innerHTML = '<div class="alert alert-danger mt-2">'+json.detail+'</div>';
+  }
+}
+</script>
+{% endblock %}
