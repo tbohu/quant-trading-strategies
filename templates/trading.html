@@ -1,0 +1,263 @@
+{% extends "base.html" %}
+{% block title %}模拟交易 — 旺财量化{% endblock %}
+{% block content %}
+
+<div class="d-flex justify-content-between align-items-center mb-3">
+  <h5 class="mb-0"><i class="bi bi-arrow-left-right me-2"></i>模拟交易记录</h5>
+  <button class="btn btn-warning btn-sm" data-bs-toggle="modal" data-bs-target="#buyModal">
+    + 模拟买入
+  </button>
+</div>
+
+<!-- 账户统计 -->
+<div class="row g-3 mb-4">
+  <div class="col-6 col-md-2">
+    <div class="stat-card text-center">
+      <div class="stat-value text-warning">{{ '%.0f'|format(account.sim_account_total_asset / 10000) }}w</div>
+      <div class="stat-label">总资产</div>
+    </div>
+  </div>
+  <div class="col-6 col-md-2">
+    <div class="stat-card text-center">
+      <div class="stat-value {% if (account.sim_total_profit or 0) >= 0 %}text-success{% else %}text-danger{% endif %}">
+        {{ '%+.1f'|format(account.sim_total_return_pct or 0) }}%
+      </div>
+      <div class="stat-label">总收益率</div>
+    </div>
+  </div>
+  <div class="col-6 col-md-2">
+    <div class="stat-card text-center">
+      <div class="stat-value {% if account.win_rate and account.win_rate >= 50 %}text-success{% else %}text-warning{% endif %}">
+        {{ '%.1f'|format(account.win_rate or 0) }}%
+      </div>
+      <div class="stat-label">胜率</div>
+    </div>
+  </div>
+  <div class="col-6 col-md-2">
+    <div class="stat-card text-center">
+      <div class="stat-value text-info">{{ '%.2f'|format(account.profit_loss_ratio or 0) }}</div>
+      <div class="stat-label">盈亏比</div>
+    </div>
+  </div>
+  <div class="col-6 col-md-2">
+    <div class="stat-card text-center">
+      <div class="stat-value text-muted">{{ '%.1f'|format(account.avg_holding_days or 0) }}</div>
+      <div class="stat-label">平均持仓天</div>
+    </div>
+  </div>
+  <div class="col-6 col-md-2">
+    <div class="stat-card text-center">
+      <div class="stat-value {% if account.trading_paused %}text-danger{% else %}text-success{% endif %}">
+        {% if account.trading_paused %}暂停{% else %}正常{% endif %}
+      </div>
+      <div class="stat-label">交易状态</div>
+    </div>
+  </div>
+</div>
+
+<!-- 进行中 -->
+{% if open_trades %}
+<div class="mb-4">
+  <h6 class="text-warning mb-2">进行中 ({{ open_trades|length }})</h6>
+  <div class="table-responsive">
+    <table class="table table-dark table-hover align-middle mb-0">
+      <thead>
+        <tr><th>编号</th><th>股票</th><th>策略</th><th>买入价</th><th>数量</th><th>金额</th><th>评分</th><th>买入时间</th><th>操作</th></tr>
+      </thead>
+      <tbody>
+        {% for t in open_trades %}
+        <tr>
+          <td class="text-muted small">{{ t.trade_id }}</td>
+          <td><div class="fw-bold">{{ t.stock_name }}</div><div class="text-muted small">{{ t.stock_code }}</div></td>
+          <td><span class="badge bg-secondary">{{ t.strategy_type or '-' }}</span></td>
+          <td>¥{{ '%.2f'|format(t.buy_price) if t.buy_price else '-' }}</td>
+          <td>{{ t.buy_quantity or '-' }}</td>
+          <td>{{ '%.0f'|format(t.buy_amount / 10000) + 'w' if t.buy_amount else '-' }}</td>
+          <td class="{% if t.buy_score and t.buy_score >= 85 %}text-success{% elif t.buy_score and t.buy_score >= 75 %}text-warning{% elif t.buy_score %}text-danger{% endif %}">
+            {{ '%.1f'|format(t.buy_score) if t.buy_score else '-' }}
+          </td>
+          <td class="text-muted small">{{ t.buy_time.strftime('%m-%d %H:%M') if t.buy_time else '-' }}</td>
+          <td>
+            <button class="btn btn-sm btn-outline-danger" onclick="openSellModal('{{ t.trade_id }}', '{{ t.stock_name }}', {{ t.buy_price or 0 }})">
+              平仓
+            </button>
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% endif %}
+
+<!-- 已平仓 -->
+<div>
+  <h6 class="text-warning mb-2">已平仓 ({{ closed_trades|length }})</h6>
+  {% if closed_trades %}
+  <div class="table-responsive">
+    <table class="table table-dark table-hover align-middle mb-0">
+      <thead>
+        <tr><th>编号</th><th>股票</th><th>策略</th><th>买入</th><th>卖出</th><th>持仓天</th><th>盈亏</th><th>收益率</th><th>结果</th></tr>
+      </thead>
+      <tbody>
+        {% for t in closed_trades %}
+        <tr>
+          <td class="text-muted small">{{ t.trade_id }}</td>
+          <td><div class="fw-bold">{{ t.stock_name }}</div><div class="text-muted small">{{ t.stock_code }}</div></td>
+          <td><span class="badge bg-secondary">{{ t.strategy_type or '-' }}</span></td>
+          <td>¥{{ '%.2f'|format(t.buy_price) if t.buy_price else '-' }}</td>
+          <td>¥{{ '%.2f'|format(t.sell_price) if t.sell_price else '-' }}</td>
+          <td class="text-muted">{{ t.holding_days or '-' }}</td>
+          <td class="{% if t.trade_profit and t.trade_profit > 0 %}text-success{% elif t.trade_profit %}text-danger{% endif %}">
+            {{ ('%.0f'|format(t.trade_profit)) if t.trade_profit is not none else '-' }}
+          </td>
+          <td class="{% if t.trade_return_pct and t.trade_return_pct > 0 %}text-success{% elif t.trade_return_pct %}text-danger{% endif %}">
+            {{ ('%+.2f%%'|format(t.trade_return_pct)) if t.trade_return_pct is not none else '-' }}
+          </td>
+          <td>
+            {% if t.is_win is not none %}
+            <span class="badge {% if t.is_win %}bg-success{% else %}bg-danger{% endif %}">
+              {% if t.is_win %}盈{% else %}亏{% endif %}
+            </span>
+            {% else %}-{% endif %}
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% else %}
+  <div class="text-muted text-center py-3">暂无已平仓记录</div>
+  {% endif %}
+</div>
+
+<!-- 买入 Modal -->
+<div class="modal fade" id="buyModal" tabindex="-1">
+  <div class="modal-dialog">
+    <div class="modal-content bg-dark border-secondary">
+      <div class="modal-header border-secondary">
+        <h5 class="modal-title">模拟买入</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body">
+        <div class="mb-2"><label class="form-label">股票代码</label>
+          <input type="text" id="b_code" class="form-control bg-dark text-white border-secondary"></div>
+        <div class="mb-2"><label class="form-label">股票名称</label>
+          <input type="text" id="b_name" class="form-control bg-dark text-white border-secondary"></div>
+        <div class="mb-2"><label class="form-label">策略类型</label>
+          <select id="b_strategy" class="form-select bg-dark text-white border-secondary">
+            <option>主线突破</option><option>强势回踩</option><option>资金异动</option>
+          </select></div>
+        <div class="mb-2"><label class="form-label">买入价格</label>
+          <input type="number" step="any" id="b_price" class="form-control bg-dark text-white border-secondary"></div>
+        <div class="mb-2"><label class="form-label">数量（股）</label>
+          <input type="number" id="b_qty" class="form-control bg-dark text-white border-secondary" value="1000"></div>
+        <div class="mb-2"><label class="form-label">买入评分</label>
+          <input type="number" step="any" id="b_score" class="form-control bg-dark text-white border-secondary"></div>
+        <div class="mb-2"><label class="form-label">买入理由</label>
+          <input type="text" id="b_reason" class="form-control bg-dark text-white border-secondary"></div>
+        <div id="b_msg"></div>
+      </div>
+      <div class="modal-footer border-secondary">
+        <button class="btn btn-warning" onclick="submitBuy()">确认买入</button>
+        <button class="btn btn-outline-secondary" data-bs-dismiss="modal">取消</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- 卖出 Modal -->
+<div class="modal fade" id="sellModal" tabindex="-1">
+  <div class="modal-dialog">
+    <div class="modal-content bg-dark border-secondary">
+      <div class="modal-header border-secondary">
+        <h5 class="modal-title">模拟平仓 — <span id="sell_name"></span></h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body">
+        <div class="mb-2"><label class="form-label">卖出价格</label>
+          <input type="number" step="any" id="s_price" class="form-control bg-dark text-white border-secondary"></div>
+        <div class="mb-2"><label class="form-label">卖出数量（股）</label>
+          <input type="number" id="s_qty" class="form-control bg-dark text-white border-secondary"></div>
+        <div class="mb-2"><label class="form-label">卖出原因</label>
+          <select id="s_reason" class="form-select bg-dark text-white border-secondary">
+            <option>止损-3%</option><option>强制止损-5%</option>
+            <option>止盈5%</option><option>止盈8%</option><option>止盈25%减仓</option>
+            <option>主力流出</option><option>跌破5日线</option><option>跌破20日线</option>
+            <option>板块退潮</option><option>其他</option>
+          </select></div>
+        <div class="mb-2"><label class="form-label">最大浮盈%</label>
+          <input type="number" step="any" id="s_max_profit" class="form-control bg-dark text-white border-secondary"></div>
+        <div class="mb-2"><label class="form-label">最大浮亏%</label>
+          <input type="number" step="any" id="s_max_loss" class="form-control bg-dark text-white border-secondary"></div>
+        <div id="s_msg"></div>
+      </div>
+      <div class="modal-footer border-secondary">
+        <button class="btn btn-danger" onclick="submitSell()">确认平仓</button>
+        <button class="btn btn-outline-secondary" data-bs-dismiss="modal">取消</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+{% endblock %}
+
+{% block scripts %}
+<script>
+let currentTradeId = null;
+
+function openSellModal(tradeId, name, buyPrice) {
+  currentTradeId = tradeId;
+  document.getElementById('sell_name').textContent = name;
+  document.getElementById('s_price').value = buyPrice;
+  document.getElementById('s_qty').value = '';
+  new bootstrap.Modal(document.getElementById('sellModal')).show();
+}
+
+async function submitBuy() {
+  const data = {
+    stock_code: document.getElementById('b_code').value.trim(),
+    stock_name: document.getElementById('b_name').value.trim(),
+    strategy_type: document.getElementById('b_strategy').value,
+    buy_price: parseFloat(document.getElementById('b_price').value),
+    buy_quantity: parseInt(document.getElementById('b_qty').value),
+    buy_score: parseFloat(document.getElementById('b_score').value) || null,
+    buy_reason: document.getElementById('b_reason').value || null,
+  };
+  const res = await fetch('/trading/buy', {
+    method: 'POST', headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify(data),
+  });
+  const json = await res.json();
+  const msg = document.getElementById('b_msg');
+  if (res.ok) {
+    msg.innerHTML = '<div class="alert alert-success">买入成功！编号：'+json.trade_id+'</div>';
+    setTimeout(() => location.reload(), 1500);
+  } else {
+    msg.innerHTML = `<div class="alert alert-danger">${json.detail}</div>`;
+  }
+}
+
+async function submitSell() {
+  const data = {
+    sell_price: parseFloat(document.getElementById('s_price').value),
+    sell_quantity: parseInt(document.getElementById('s_qty').value),
+    sell_reason: document.getElementById('s_reason').value,
+    max_floating_profit_pct: parseFloat(document.getElementById('s_max_profit').value) || null,
+    max_floating_loss_pct: parseFloat(document.getElementById('s_max_loss').value) || null,
+  };
+  const res = await fetch(`/trading/${currentTradeId}/sell`, {
+    method: 'POST', headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify(data),
+  });
+  const json = await res.json();
+  const msg = document.getElementById('s_msg');
+  if (res.ok) {
+    msg.innerHTML = `<div class="alert alert-success">平仓成功！盈亏 ${json.profit.toFixed(0)}元（${json.return_pct.toFixed(2)}%）</div>`;
+    setTimeout(() => location.reload(), 1500);
+  } else {
+    msg.innerHTML = `<div class="alert alert-danger">${json.detail}</div>`;
+  }
+}
+</script>
+{% endblock %}
