@@ -1,0 +1,94 @@
+{% extends "base.html" %}
+{% block title %}添加股票 — 旺财量化{% endblock %}
+{% block content %}
+<div class="row justify-content-center">
+  <div class="col-12 col-md-6">
+    <div class="stat-card p-4">
+      <h5 class="mb-4"><i class="bi bi-plus-circle me-2 text-warning"></i>添加自选股</h5>
+      <form id="addForm">
+        <div class="mb-3">
+          <label class="form-label">股票代码 *</label>
+          <input type="text" class="form-control bg-dark text-white border-secondary" name="code" placeholder="如 300502" required>
+        </div>
+        <div class="mb-3">
+          <label class="form-label">股票名称 *</label>
+          <input type="text" class="form-control bg-dark text-white border-secondary" name="name" placeholder="如 新易盛" required>
+        </div>
+        <div class="mb-3">
+          <label class="form-label">所属市场</label>
+          <select class="form-select bg-dark text-white border-secondary" name="market">
+            <option value="SZ">深证 SZ</option>
+            <option value="SH">上证 SH</option>
+            <option value="BJ">北交所 BJ</option>
+          </select>
+        </div>
+        <div class="mb-3">
+          <label class="form-label">所属行业</label>
+          <input type="text" class="form-control bg-dark text-white border-secondary" name="industry" placeholder="如 通信设备">
+        </div>
+        <div class="mb-3">
+          <label class="form-label">所属概念（逗号分隔）</label>
+          <input type="text" class="form-control bg-dark text-white border-secondary" name="concepts" placeholder="如 光模块,算力,CPO">
+        </div>
+        <div class="row mb-3">
+          <div class="col">
+            <div class="form-check">
+              <input class="form-check-input" type="checkbox" name="is_st" id="is_st">
+              <label class="form-check-label" for="is_st">ST股票</label>
+            </div>
+          </div>
+          <div class="col">
+            <div class="form-check">
+              <input class="form-check-input" type="checkbox" name="is_loss" id="is_loss">
+              <label class="form-check-label" for="is_loss">最近亏损</label>
+            </div>
+          </div>
+          <div class="col">
+            <div class="form-check">
+              <input class="form-check-input" type="checkbox" name="has_major_risk" id="has_major_risk">
+              <label class="form-check-label" for="has_major_risk">重大风险</label>
+            </div>
+          </div>
+        </div>
+        <div id="msg" class="mb-3"></div>
+        <div class="d-flex gap-2">
+          <button type="submit" class="btn btn-warning flex-fill">添加股票</button>
+          <a href="/stocks" class="btn btn-outline-secondary">取消</a>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+document.getElementById('addForm').addEventListener('submit', async e => {
+  e.preventDefault();
+  const fd = new FormData(e.target);
+  const data = {
+    code: fd.get('code').trim(),
+    name: fd.get('name').trim(),
+    market: fd.get('market'),
+    industry: fd.get('industry') || null,
+    concepts: fd.get('concepts') || null,
+    is_st: fd.get('is_st') === 'on',
+    is_loss: fd.get('is_loss') === 'on',
+    has_major_risk: fd.get('has_major_risk') === 'on',
+  };
+  const res = await fetch('/stocks/add', {
+    method: 'POST',
+    headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify(data),
+  });
+  const json = await res.json();
+  const msg = document.getElementById('msg');
+  if (res.ok) {
+    msg.innerHTML = '<div class="alert alert-success">添加成功！3秒后跳转…</div>';
+    setTimeout(() => location.href = '/stocks/' + json.code + '/analyze', 2000);
+  } else {
+    msg.innerHTML = `<div class="alert alert-danger">${json.detail}</div>`;
+  }
+});
+</script>
+{% endblock %}
