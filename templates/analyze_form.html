@@ -1,0 +1,361 @@
+{% extends "base.html" %}
+{% block title %}录入分析数据 — {{ stock.name }}{% endblock %}
+{% block content %}
+
+<div class="d-flex align-items-center mb-4">
+  <a href="/stocks/{{ stock.code }}" class="btn btn-outline-secondary btn-sm me-3">← 返回</a>
+  <div>
+    <h5 class="mb-0">{{ stock.name }} <span class="text-muted">{{ stock.code }}</span></h5>
+    <div class="text-muted small">{{ stock.industry }} · 录入今日行情数据进行评分</div>
+  </div>
+</div>
+
+<form id="analyzeForm">
+<div class="row g-3">
+
+  <!-- 行情数据 -->
+  <div class="col-12">
+    <div class="stat-card p-3">
+      <h6 class="text-warning mb-3"><i class="bi bi-graph-up me-1"></i>行情数据</h6>
+      <div class="row g-2">
+        {% for label, name, ph in [
+          ('当前价格','current_price','元'),('涨跌幅%','change_pct','如 3.25'),
+          ('成交额(元)','turnover_amount',''),('成交量(手)','volume',''),
+          ('换手率%','turnover_rate',''),('量比','volume_ratio',''),
+          ('总市值(元)','total_market_cap',''),('流通市值(元)','float_market_cap',''),
+          ('今日最高','high_price',''),('今日最低','low_price',''),
+          ('开盘价','open_price',''),('昨收','prev_close_price',''),
+        ] %}
+        <div class="col-6 col-md-3 col-lg-2">
+          <label class="form-label">{{ label }}</label>
+          <input type="number" step="any" class="form-control form-control-sm bg-dark text-white border-secondary" name="{{ name }}" placeholder="{{ ph }}">
+        </div>
+        {% endfor %}
+      </div>
+    </div>
+  </div>
+
+  <!-- 技术因子 -->
+  <div class="col-12">
+    <div class="stat-card p-3">
+      <h6 class="text-warning mb-3"><i class="bi bi-activity me-1"></i>K线技术因子</h6>
+      <div class="row g-2">
+        {% for label, name in [
+          ('MA5','ma5'),('MA10','ma10'),('MA20','ma20'),('MA60','ma60'),
+          ('近5日涨幅%','rise_5d_pct'),('近10日涨幅%','rise_10d_pct'),
+          ('近20日涨幅%','rise_20d_pct'),('近60日涨幅%','rise_60d_pct'),
+          ('5日均量','avg_volume_5d'),('20日均量','avg_volume_20d'),
+        ] %}
+        <div class="col-6 col-md-3 col-lg-2">
+          <label class="form-label">{{ label }}</label>
+          <input type="number" step="any" class="form-control form-control-sm bg-dark text-white border-secondary" name="{{ name }}">
+        </div>
+        {% endfor %}
+      </div>
+    </div>
+  </div>
+
+  <!-- 基本面 -->
+  <div class="col-12 col-lg-6">
+    <div class="stat-card p-3 h-100">
+      <h6 class="text-warning mb-3"><i class="bi bi-file-earmark-bar-graph me-1"></i>财报基本面</h6>
+      <div class="row g-2">
+        {% for label, name in [
+          ('报告期','report_date_str'),
+          ('营收同比%','revenue_yoy_pct'),('净利润同比%','net_profit_yoy_pct'),
+          ('扣非同比%','deducted_net_profit_yoy_pct'),
+          ('ROE%','roe_pct'),('毛利率%','gross_margin_pct'),('净利率%','net_margin_pct'),
+          ('资产负债率%','debt_ratio_pct'),('经营现金流','operating_cashflow'),
+          ('EPS','eps'),
+        ] %}
+        <div class="col-6">
+          <label class="form-label">{{ label }}</label>
+          {% if name == 'report_date_str' %}
+          <input type="text" class="form-control form-control-sm bg-dark text-white border-secondary" name="report_date" placeholder="如 2024Q3">
+          {% else %}
+          <input type="number" step="any" class="form-control form-control-sm bg-dark text-white border-secondary" name="{{ name }}">
+          {% endif %}
+        </div>
+        {% endfor %}
+      </div>
+    </div>
+  </div>
+
+  <!-- 估值 -->
+  <div class="col-12 col-lg-6">
+    <div class="stat-card p-3 h-100">
+      <h6 class="text-warning mb-3"><i class="bi bi-calculator me-1"></i>估值因子</h6>
+      <div class="row g-2">
+        {% for label, name in [
+          ('PE动态','pe_dynamic'),('PE TTM','pe_ttm'),
+          ('PB','pb'),('PS','ps'),('EV/EBITDA','ev_ebitda'),
+          ('行业PE中位数','industry_pe_median'),('行业PB中位数','industry_pb_median'),
+        ] %}
+        <div class="col-6">
+          <label class="form-label">{{ label }}</label>
+          <input type="number" step="any" class="form-control form-control-sm bg-dark text-white border-secondary" name="{{ name }}">
+        </div>
+        {% endfor %}
+      </div>
+    </div>
+  </div>
+
+  <!-- 主力资金 -->
+  <div class="col-12 col-lg-6">
+    <div class="stat-card p-3">
+      <h6 class="text-warning mb-3"><i class="bi bi-currency-dollar me-1"></i>主力资金（万元）</h6>
+      <div class="row g-2">
+        {% for label, name in [
+          ('当日主力净流入','main_net_inflow'),('净流入占比%','main_net_inflow_pct'),
+          ('超大单净流入','super_large_net_inflow'),('大单净流入','large_net_inflow'),
+          ('中单净流入','medium_net_inflow'),('小单净流入','small_net_inflow'),
+          ('3日主力合计','main_net_inflow_3d'),('5日主力合计','main_net_inflow_5d'),
+          ('10日主力合计','main_net_inflow_10d'),
+        ] %}
+        <div class="col-6 col-md-4">
+          <label class="form-label">{{ label }}</label>
+          <input type="number" step="any" class="form-control form-control-sm bg-dark text-white border-secondary" name="{{ name }}" value="0">
+        </div>
+        {% endfor %}
+      </div>
+    </div>
+  </div>
+
+  <!-- 板块 -->
+  <div class="col-12 col-lg-6">
+    <div class="stat-card p-3">
+      <h6 class="text-warning mb-3"><i class="bi bi-grid me-1"></i>板块热度</h6>
+      <div class="row g-2">
+        {% for label, name, val in [
+          ('行业涨幅%','industry_change_pct','0'),('概念涨幅%','concept_change_pct','0'),
+          ('行业主力净流入','industry_main_inflow','0'),('概念主力净流入','concept_main_inflow','0'),
+          ('行业上涨家数','industry_rise_count','0'),('行业下跌家数','industry_fall_count','0'),
+          ('行业板块排名','industry_rank','99'),('概念板块排名','concept_rank','99'),
+        ] %}
+        <div class="col-6 col-md-3">
+          <label class="form-label">{{ label }}</label>
+          <input type="number" step="any" class="form-control form-control-sm bg-dark text-white border-secondary" name="{{ name }}" value="{{ val }}">
+        </div>
+        {% endfor %}
+      </div>
+    </div>
+  </div>
+
+  <!-- 龙虎榜 + 筹码 -->
+  <div class="col-12 col-md-6">
+    <div class="stat-card p-3">
+      <h6 class="text-warning mb-3"><i class="bi bi-trophy me-1"></i>龙虎榜</h6>
+      <div class="form-check mb-2">
+        <input class="form-check-input" type="checkbox" name="on_lhb" id="on_lhb">
+        <label class="form-check-label" for="on_lhb">上榜龙虎榜</label>
+      </div>
+      <div class="row g-2">
+        {% for label, name in [
+          ('龙虎榜净买入','lhb_net_buy_amount'),('机构净买入','institution_net_buy'),
+          ('游资买入','hot_money_buy_amount'),('游资卖出','hot_money_sell_amount'),
+        ] %}
+        <div class="col-6">
+          <label class="form-label">{{ label }}</label>
+          <input type="number" step="any" class="form-control form-control-sm bg-dark text-white border-secondary" name="{{ name }}" value="0">
+        </div>
+        {% endfor %}
+      </div>
+    </div>
+  </div>
+
+  <div class="col-12 col-md-6">
+    <div class="stat-card p-3">
+      <h6 class="text-warning mb-3"><i class="bi bi-people me-1"></i>筹码集中度</h6>
+      <div class="row g-2">
+        <div class="col-6">
+          <label class="form-label">股东人数</label>
+          <input type="number" class="form-control form-control-sm bg-dark text-white border-secondary" name="shareholder_count">
+        </div>
+        <div class="col-6">
+          <label class="form-label">股东人数变化%</label>
+          <input type="number" step="any" class="form-control form-control-sm bg-dark text-white border-secondary" name="shareholder_count_change_pct" placeholder="负=减少=集中">
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 公告 -->
+  <div class="col-12">
+    <div class="stat-card p-3">
+      <h6 class="text-warning mb-3"><i class="bi bi-megaphone me-1"></i>公告因子</h6>
+      <div class="row g-2 mb-3">
+        {% for label, name in [
+          ('风险公告数量','risk_announcement_count'),
+          ('催化公告数量','catalyst_announcement_count'),
+          ('30日公告数量','announcement_count_30d'),
+        ] %}
+        <div class="col-4">
+          <label class="form-label">{{ label }}</label>
+          <input type="number" class="form-control form-control-sm bg-dark text-white border-secondary" name="{{ name }}" value="0">
+        </div>
+        {% endfor %}
+      </div>
+      <div class="row g-2">
+        <div class="col-12 col-md-6">
+          <p class="text-danger small mb-1">风险类</p>
+          <div class="row g-1">
+            {% for label, name in [
+              ('减持','has_reduction_announcement'),('大股东减持','has_major_shareholder_reduction'),
+              ('解禁','has_unlock_risk'),('监管问询','has_regulatory_inquiry'),
+              ('处罚','has_penalty'),('立案调查','has_investigation'),
+              ('质押','has_pledge_risk'),('亏损预警','has_loss_warning'),
+              ('业绩下修','has_guidance_cut'),('商誉减值','has_goodwill_impairment'),
+              ('诉讼','has_lawsuit'),('退市风险','has_delisting_risk'),
+            ] %}
+            <div class="col-6">
+              <div class="form-check">
+                <input class="form-check-input" type="checkbox" name="{{ name }}" id="{{ name }}">
+                <label class="form-check-label small" for="{{ name }}">{{ label }}</label>
+              </div>
+            </div>
+            {% endfor %}
+          </div>
+        </div>
+        <div class="col-12 col-md-6">
+          <p class="text-success small mb-1">催化剂类</p>
+          <div class="row g-1">
+            {% for label, name in [
+              ('业绩预增','has_profit_warning_positive'),('重大合同','has_major_contract'),
+              ('中标','has_winning_bid'),('订单','has_order_catalyst'),
+              ('回购','has_buyback'),('增持','has_shareholder_increase'),
+              ('并购','has_ma'),('分红','has_dividend'),
+              ('涨价','has_price_hike'),('新产品','has_new_product'),
+              ('产能扩张','has_capacity_expansion'),
+            ] %}
+            <div class="col-6">
+              <div class="form-check">
+                <input class="form-check-input" type="checkbox" name="{{ name }}" id="{{ name }}">
+                <label class="form-check-label small" for="{{ name }}">{{ label }}</label>
+              </div>
+            </div>
+            {% endfor %}
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<div id="resultBox" class="mt-4"></div>
+
+<div class="d-flex gap-2 mt-4">
+  <button type="button" class="btn btn-warning btn-lg flex-fill" onclick="submitAnalysis()">
+    <i class="bi bi-lightning-fill me-1"></i>立即评分分析
+  </button>
+  <a href="/stocks/{{ stock.code }}" class="btn btn-outline-secondary btn-lg">取消</a>
+</div>
+</form>
+
+{% endblock %}
+
+{% block scripts %}
+<script>
+async function submitAnalysis() {
+  const form = document.getElementById('analyzeForm');
+  const fd = new FormData(form);
+  const data = {};
+  const numFields = [
+    'current_price','change_pct','turnover_amount','volume','turnover_rate','volume_ratio',
+    'total_market_cap','float_market_cap','high_price','low_price','open_price','prev_close_price',
+    'ma5','ma10','ma20','ma60','rise_5d_pct','rise_10d_pct','rise_20d_pct','rise_60d_pct',
+    'avg_volume_5d','avg_volume_20d',
+    'revenue_yoy_pct','net_profit_yoy_pct','deducted_net_profit_yoy_pct',
+    'roe_pct','gross_margin_pct','net_margin_pct','debt_ratio_pct','operating_cashflow','eps',
+    'pe_dynamic','pe_ttm','pb','ps','ev_ebitda','industry_pe_median','industry_pb_median',
+    'main_net_inflow','main_net_inflow_pct','super_large_net_inflow','large_net_inflow',
+    'medium_net_inflow','small_net_inflow','main_net_inflow_3d','main_net_inflow_5d','main_net_inflow_10d',
+    'industry_change_pct','concept_change_pct','industry_main_inflow','concept_main_inflow',
+    'industry_rise_count','industry_fall_count','concept_rise_count','concept_fall_count',
+    'industry_rank','concept_rank',
+    'lhb_net_buy_amount','institution_net_buy','hot_money_buy_amount','hot_money_sell_amount',
+    'shareholder_count','shareholder_count_change_pct',
+    'risk_announcement_count','catalyst_announcement_count','announcement_count_30d',
+  ];
+  const boolFields = [
+    'on_lhb','has_reduction_announcement','has_major_shareholder_reduction','has_unlock_risk',
+    'has_regulatory_inquiry','has_penalty','has_investigation','has_pledge_risk','has_loss_warning',
+    'has_guidance_cut','has_goodwill_impairment','has_lawsuit','has_delisting_risk',
+    'has_profit_warning_positive','has_major_contract','has_winning_bid','has_order_catalyst',
+    'has_buyback','has_shareholder_increase','has_ma','has_restructuring','has_dividend',
+    'has_price_hike','has_new_product','has_capacity_expansion',
+  ];
+  for (const f of numFields) {
+    const v = fd.get(f);
+    data[f] = v !== null && v !== '' ? parseFloat(v) : null;
+  }
+  for (const f of boolFields) {
+    data[f] = fd.get(f) === 'on';
+  }
+  if (fd.get('report_date')) data.report_date = fd.get('report_date');
+
+  const btn = document.querySelector('button[onclick="submitAnalysis()"]');
+  btn.disabled = true;
+  btn.innerHTML = '<span class="spinner-border spinner-border-sm me-1"></span>分析中…';
+
+  const res = await fetch('/stocks/{{ stock.code }}/analyze', {
+    method: 'POST',
+    headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify(data),
+  });
+  const json = await res.json();
+  btn.disabled = false;
+  btn.innerHTML = '<i class="bi bi-lightning-fill me-1"></i>立即评分分析';
+
+  const box = document.getElementById('resultBox');
+  if (res.ok) {
+    const v60c = scoreColor(json.v60_score);
+    const v42c = scoreColor(json.v42_score);
+    const mfc  = scoreColor(json.main_force_score);
+    const sig = json.buy_signal
+      ? '<span class="signal-buy fs-6">买入信号</span>'
+      : json.sell_signal
+      ? '<span class="signal-sell fs-6">卖出信号</span>'
+      : '<span class="signal-watch fs-6">观察</span>';
+    box.innerHTML = `
+      <div class="stat-card p-4 border border-success">
+        <div class="d-flex align-items-center gap-3 mb-3 flex-wrap">
+          <h5 class="mb-0">评分结果</h5>${sig}
+          ${json.matched_strategy ? '<span class="badge bg-success">'+json.matched_strategy+'</span>' : ''}
+        </div>
+        <div class="row g-3 mb-3">
+          <div class="col-4 text-center">
+            <div class="text-muted small">V6.0 超短线</div>
+            <div class="fs-2 fw-bold ${v60c}">${json.v60_score}</div>
+            <div class="small text-muted">${json.v60_conclusion}</div>
+          </div>
+          <div class="col-4 text-center">
+            <div class="text-muted small">V4.2 中线</div>
+            <div class="fs-2 fw-bold ${v42c}">${json.v42_score}</div>
+            <div class="small text-muted">${json.v42_conclusion}</div>
+          </div>
+          <div class="col-4 text-center">
+            <div class="text-muted small">主力控盘</div>
+            <div class="fs-2 fw-bold ${mfc}">${json.main_force_score}</div>
+            <div class="small text-muted">${json.main_force_state}</div>
+          </div>
+        </div>
+        <div class="mb-2"><span class="text-warning">操作建议：</span>${json.operation_advice}</div>
+        ${json.risk_alert ? '<div class="text-danger small"><i class="bi bi-exclamation-triangle me-1"></i>'+json.risk_alert+'</div>' : ''}
+        <div class="mt-3">
+          <a href="/stocks/{{ stock.code }}" class="btn btn-outline-primary">查看完整分析</a>
+        </div>
+      </div>`;
+  } else {
+    box.innerHTML = `<div class="alert alert-danger">${json.detail}</div>`;
+  }
+}
+
+function scoreColor(s) {
+  if (!s) return 'text-muted';
+  if (s >= 85) return 'text-success';
+  if (s >= 75) return 'text-warning';
+  return 'text-danger';
+}
+</script>
+{% endblock %}
